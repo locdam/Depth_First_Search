@@ -1,4 +1,4 @@
-function [T] = Dijkstra(G,v_id)
+function [T] = PrimMinSpanningTree(G,v_id)
 % check if vertices have names
 if (~sum(ismember(G.Nodes.Properties.VariableNames,'Name')))
     % if not, give names using its indices
@@ -25,7 +25,6 @@ T = addnode(T,1);
 % nodes of T
 T.Nodes.origId(1) = v_id;
 T.Nodes.Name(1) = G.Nodes.Name(v_id);
-T.Nodes.Dist(1) =0;
 
 
 % initiate the counting of dfnumber
@@ -38,13 +37,19 @@ T.Nodes.discN(1) = currentDf;
 % the first set of frontier edges are the edges from the vertex with id
 % v_id
 [S,nV] = outedges(G,v_id);
+
 S = S(nV~=v_id);
 
-while ~isempty(S)
-    currentDf = currentDf +1;
 
-    eidx = DijNextEdge(G,S,v_id);
+% when the set of frontier edges is not empty
+while ~isempty(S)
+    % advance the dfnumber
+    currentDf = currentDf+1;
     
+    % edge idx (in G) of the next edge
+    eidx = PrimNextEdge(G,S);
+    
+    % endpints of the chosen next edge
     endpts = G.Edges.EndNodes(eidx,:);
     endpts = findnode(G,{endpts{1} endpts{2}});
     
@@ -57,7 +62,7 @@ while ~isempty(S)
         pre_id = endpts(2);
     end
     % add the new node to the tree
-    newNode = table(w_id,G.Nodes.Name(w_id), distances(G,v_id, w_id), currentDf,'VariableNames', {'origId','Name', 'Dist', 'discN'});
+    newNode = table(G.Nodes.Name(w_id), w_id, currentDf,'VariableNames', {'Name','origId', 'discN'});
     T = addnode(T,newNode);
     
     % create the edge and its attributes (endpts and original id in G) to be added in T
@@ -68,57 +73,40 @@ while ~isempty(S)
     G.Nodes.discN(w_id) = currentDf;
     
     % update the set of frontier edges
-    S = DijFrontierEdge(G,S);
-end
-   
-end % end function Dijkstra
-
-
-%% DijNextEdge
-function [eidx] = DijNextEdge(G,S,v_id)
-
-    %set an empty distance set for later use
-    dist = [];
+    S = PrimFrontierEdge(G,S);
     
-    %run a loop acroos the all edges in S
-    for j = 1:length(S)
+end
+end % end function PrimMinSpanningTree
+
+
+%%Next Edge
+
+function [eidx] = PrimNextEdge(G,S)
+
+    %First, sort S from small to big
+    sort_S = sort(S,'Ascend');
+
+    %run a loop across the length of S
+    for i=1:length(sort_S)
+
+        %extract the weight and position of the Edge with the minimum weight in S
+        [weight, pos] = min(G.Edges.Weight(S));
         
-        %find the endpoints of each edge in S
-        endpts = G.Edges.EndNodes(S(j),:);
-        endpts = findnode(G,{endpts{1} endpts{2}});
-        
-        %determine the tree nodes by their dfN
-        if (~isinf(G.Nodes.discN(endpts(1)))) % endpts(1) is a tree node
-            w_id = endpts(2);
-            pre_id = endpts(1);
-        else % endpts(2) is a tree node
-            w_id = endpts(1);
-            pre_id = endpts(2);
-        end
-        
-        %define P =d[x] + weight(e), where d[x] is the distance from the starting node to the tree node, and weight(e)
-        % is the weight of that edge
-        P = distances(G, v_id, pre_id) + G.Edges.Weight(S(j));
-        
-        %stack each values of P to dist
-        dist(end+1) = [P];
+        %set next edge to be the edge at that position.
+        eidx = S(pos);
     end
-    
-    %find the position of the minimum P in dist. The edge carries that value is our new edge, eidx.
-    [weight, pos] = min(dist);
-    eidx = S(pos);
 
-end
+end %end function dfsNextEdge+
 
-%% DijFrontierEdge
+%% Frontier Edge
 
-function S_new = DijFrontierEdge(G,S)
+function S_new = PrimFrontierEdge(G,S)
     %First, sort S from small to big
     sort_S = sort(S,'Ascend');
     S_new = [];
     %Start a loop across the length of Nodes of G.
     for i = 1:length(G.Nodes.Name)
-
+        
         % find all edges spanning from the discovered nodes.
         %determine the discovered nodes by its dfN, if it is not -Inf, then it is discovered.
         if (~ isinf(G.Nodes.discN(i)))
@@ -155,6 +143,6 @@ function S_new = DijFrontierEdge(G,S)
 
     %use setdiff to extract the undiscovered from S_new vs the discovredS.
     S_new = setdiff(S_new, discoveredS);
-
-
 end
+
+
